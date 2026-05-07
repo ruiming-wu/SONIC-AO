@@ -145,7 +145,6 @@ class TrackingCommand(CommandTerm):
             .view(1, -1, 3)
             .repeat(self.num_envs, 1, 1)
         )
-
         self.reward_point_body_indices = [
             self.robot.body_names.index(name) for name in self.cfg.reward_point_body
         ]
@@ -169,16 +168,30 @@ class TrackingCommand(CommandTerm):
             device=self.device,
         )
 
-        isaac_lab_joints = env.cfg.isaaclab_to_mujoco_mapping["isaaclab_joints"]
-
-        self.isaaclab_to_mujoco_dof = env.cfg.isaaclab_to_mujoco_mapping["isaaclab_to_mujoco_dof"]
-        self.mujoco_to_isaaclab_dof = env.cfg.isaaclab_to_mujoco_mapping["mujoco_to_isaaclab_dof"]
+        isaaclab_to_mujoco_mapping = env.cfg.isaaclab_to_mujoco_mapping
+        if "mujoco_dofs" in isaaclab_to_mujoco_mapping:
+            mujoco_dofs = isaaclab_to_mujoco_mapping["mujoco_dofs"]
+            mujoco_bodies = isaaclab_to_mujoco_mapping["mujoco_bodies"]
+            isaac_lab_dofs = self.robot.joint_names
+            isaac_lab_joints = self.robot.body_names
+            self.isaaclab_to_mujoco_dof = [mujoco_dofs.index(name) for name in isaac_lab_dofs]
+            self.mujoco_to_isaaclab_dof = [isaac_lab_dofs.index(name) for name in mujoco_dofs]
+            self.isaaclab_to_mujoco_body = [
+                mujoco_bodies.index(name) for name in isaac_lab_joints
+            ]
+            self.mujoco_to_isaaclab_body = [
+                isaac_lab_joints.index(name) for name in mujoco_bodies
+            ]
+        else:
+            isaac_lab_joints = isaaclab_to_mujoco_mapping["isaaclab_joints"]
+            self.isaaclab_to_mujoco_dof = isaaclab_to_mujoco_mapping["isaaclab_to_mujoco_dof"]
+            self.mujoco_to_isaaclab_dof = isaaclab_to_mujoco_mapping["mujoco_to_isaaclab_dof"]
+            self.isaaclab_to_mujoco_body = isaaclab_to_mujoco_mapping["isaaclab_to_mujoco_body"]
+            self.mujoco_to_isaaclab_body = isaaclab_to_mujoco_mapping["mujoco_to_isaaclab_body"]
         self.lower_joint_indices_mujoco = list(range(12))
         self.lower_joint_isaaclab_indices = [
             self.isaaclab_to_mujoco_dof[i] for i in self.lower_joint_indices_mujoco
         ]
-        self.isaaclab_to_mujoco_body = env.cfg.isaaclab_to_mujoco_mapping["isaaclab_to_mujoco_body"]
-        self.mujoco_to_isaaclab_body = env.cfg.isaaclab_to_mujoco_mapping["mujoco_to_isaaclab_body"]
         self.running_ref_root_height = torch.zeros(
             self.num_envs, dtype=torch.float, device=self.device
         )

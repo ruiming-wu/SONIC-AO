@@ -16,6 +16,7 @@ from rich import progress
 from scipy.spatial import transform
 import torch
 import torch.multiprocessing as mp
+import torch.nn.functional as F
 
 from gear_sonic.isaac_utils import rotations
 from gear_sonic.trl.utils import common
@@ -38,6 +39,21 @@ def to_torch(tensor):
         return tensor
     else:
         return torch.from_numpy(tensor)
+
+
+def resample_tensor_to_length(tensor: torch.Tensor, target_len: int) -> torch.Tensor:
+    """Linearly resample a frame-major tensor to ``target_len`` frames."""
+    if tensor.shape[0] == target_len:
+        return tensor
+    if target_len <= 0:
+        raise ValueError(f"target_len must be positive, got {target_len}")
+    if tensor.shape[0] <= 1:
+        return tensor[:1].repeat(target_len, *([1] * (tensor.ndim - 1)))
+
+    source_shape = tensor.shape
+    flat = tensor.reshape(source_shape[0], -1).T.unsqueeze(0)
+    out = F.interpolate(flat, size=target_len, mode="linear", align_corners=True)
+    return out.squeeze(0).T.reshape(target_len, *source_shape[1:])
 
 
 def is_navigation_motion(motion_key):
@@ -263,14 +279,25 @@ class MotionLibBase:
                     ]
                 else:
                     self.smpl_data = []
-                    smpl_pkl_files = set(
-                        glob.glob(osp.join(smpl_motion_file, "**", "*.pkl"), recursive=True)
-                    )
+                    # Directory mode may be organized in category subfolders, matching
+                    # the robot motionlib layout. Index by basename so nested SMPL
+                    # files are resolved consistently with SOMA data below.
+                    smpl_index = {
+                        osp.splitext(osp.basename(f))[0]: f
+                        for f in glob.glob(
+                            osp.join(smpl_motion_file, "**", "*.pkl"), recursive=True
+                        )
+                    }
                     for k in self._motion_data_keys:
                         seq = os.path.basename(k)
-                        smpl_path = osp.join(smpl_motion_file, seq + ".pkl")
-                        if self.debug or smpl_path in smpl_pkl_files:
-                            self.smpl_data.append({"seq": seq, "path": smpl_path})
+                        smpl_path = smpl_index.get(seq)
+                        if self.debug or smpl_path is not None:
+                            self.smpl_data.append(
+                                {
+                                    "seq": seq,
+                                    "path": smpl_path or osp.join(smpl_motion_file, seq + ".pkl"),
+                                }
+                            )
                             self.smpl_data_keys.add(seq)
                         else:
                             self.smpl_data.append(None)
@@ -1899,20 +1926,6 @@ class MotionLibBase:
                         if "smpl_joints" in curr_smpl_data:
                             smpl_joints = torch.tensor(curr_smpl_data["smpl_joints"]).float()
                             curr_motion["smpl_joints"] = smpl_joints
-                            if (
-                                curr_motion["smpl_joints"].shape[0]
-                                != curr_motion["global_translation"].shape[1]
-                            ):
-                                print(  # noqa: T201
-                                    f"Length mismatch: smpl_joints={curr_motion['smpl_joints'].shape[0]}, "
-                                    f"global_translation={curr_motion['global_translation'].shape[1]}"
-                                )
-                                print(smpl_data_list[f], motion_data_list[f])  # noqa: T201
-
-                            assert (
-                                curr_motion["smpl_joints"].shape[0]
-                                == curr_motion["global_translation"].shape[1]
-                            )
                         else:
                             num_frames = curr_motion["global_translation"].shape[1]
                             curr_motion["smpl_joints"] = torch.zeros(num_frames, 24, 3).to(
@@ -1921,17 +1934,31 @@ class MotionLibBase:
                         if "transl" in curr_smpl_data:
                             transl = torch.tensor(curr_smpl_data["transl"]).float()
                             curr_motion["smpl_transl"] = transl
-                            assert (
-                                curr_motion["smpl_transl"].shape[0]
-                                == curr_motion["global_translation"].shape[1]
-                            )
                         else:
                             num_frames = curr_motion["global_translation"].shape[1]
                             curr_motion["smpl_transl"] = torch.zeros(num_frames, 3).to(
                                 curr_motion["global_translation"]
                             )
+                        num_frames = curr_motion["global_translation"].shape[1]
+                        curr_motion["smpl_pose"] = resample_tensor_to_length(
+                            curr_motion["smpl_pose"], num_frames
+                        )
+                        curr_motion["smpl_joints"] = resample_tensor_to_length(
+                            curr_motion["smpl_joints"], num_frames
+                        )
+                        curr_motion["smpl_transl"] = resample_tensor_to_length(
+                            curr_motion["smpl_transl"], num_frames
+                        )
                         assert (
                             curr_motion["smpl_pose"].shape[0]
+                            == curr_motion["global_translation"].shape[1]
+                        )
+                        assert (
+                            curr_motion["smpl_joints"].shape[0]
+                            == curr_motion["global_translation"].shape[1]
+                        )
+                        assert (
+                            curr_motion["smpl_transl"].shape[0]
                             == curr_motion["global_translation"].shape[1]
                         )
 
