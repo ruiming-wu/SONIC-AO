@@ -174,13 +174,13 @@ class TrackingCommand(CommandTerm):
             mujoco_bodies = isaaclab_to_mujoco_mapping["mujoco_bodies"]
             isaac_lab_dofs = self.robot.joint_names
             isaac_lab_joints = self.robot.body_names
-            self.isaaclab_to_mujoco_dof = [mujoco_dofs.index(name) for name in isaac_lab_dofs]
-            self.mujoco_to_isaaclab_dof = [isaac_lab_dofs.index(name) for name in mujoco_dofs]
+            self.isaaclab_to_mujoco_dof = [isaac_lab_dofs.index(name) for name in mujoco_dofs]
+            self.mujoco_to_isaaclab_dof = [mujoco_dofs.index(name) for name in isaac_lab_dofs]
             self.isaaclab_to_mujoco_body = [
-                mujoco_bodies.index(name) for name in isaac_lab_joints
+                isaac_lab_joints.index(name) for name in mujoco_bodies
             ]
             self.mujoco_to_isaaclab_body = [
-                isaac_lab_joints.index(name) for name in mujoco_bodies
+                mujoco_bodies.index(name) for name in isaac_lab_joints
             ]
         else:
             isaac_lab_joints = isaaclab_to_mujoco_mapping["isaaclab_joints"]
