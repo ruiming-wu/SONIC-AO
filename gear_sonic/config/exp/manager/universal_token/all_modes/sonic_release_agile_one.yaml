@@ -47,20 +47,20 @@ manager_env:
       params:
         sensor_cfg:
           body_names:
-            - "^(?!left_ankle_roll_link$)(?!right_ankle_roll_link$)(?!left_wrist_pitch_link$)(?!right_wrist_pitch_link$)(?!left_elbow_roll_link$)(?!right_elbow_roll_link$).+$"
+            - "^(?!left_ankle_roll_link$)(?!right_ankle_roll_link$)(?!left_ankle_pitch_link$)(?!right_ankle_pitch_link$)(?!left_wrist_pitch_link$)(?!right_wrist_pitch_link$)(?!left_elbow_roll_link$)(?!right_elbow_roll_link$).+$"
   terminations:
     ee_body_pos:
       params:
         body_names:
-          - "left_ankle_roll_link"
-          - "right_ankle_roll_link"
+          - "left_ankle_pitch_link"
+          - "right_ankle_pitch_link"
           - "left_wrist_pitch_link"
           - "right_wrist_pitch_link"
     foot_pos_xyz:
       params:
         body_names:
-          - "left_ankle_roll_link"
-          - "right_ankle_roll_link"
+          - "left_ankle_pitch_link"
+          - "right_ankle_pitch_link"
   events:
     randomize_rigid_body_mass:
       params:
@@ -84,8 +84,8 @@ manager_env:
           "head_pitch_link",
           "left_wrist_pitch_link",
           "right_wrist_pitch_link",
-          "left_ankle_roll_link",
-          "right_ankle_roll_link",
+          "left_ankle_pitch_link",
+          "right_ankle_pitch_link",
         ]
       reward_point_body_offset:
         [
@@ -100,10 +100,10 @@ manager_env:
           "pelvis_link",
           "left_hip_roll_link",
           "left_knee_link",
-          "left_ankle_roll_link",
+          "left_ankle_pitch_link",
           "right_hip_roll_link",
           "right_knee_link",
-          "right_ankle_roll_link",
+          "right_ankle_pitch_link",
           "head_pitch_link",
           "left_shoulder_roll_link",
           "left_elbow_roll_link",
@@ -112,6 +112,7 @@ manager_env:
           "right_elbow_roll_link",
           "right_wrist_pitch_link",
         ]
+      feet_body_names: ["left_ankle_pitch_link", "right_ankle_pitch_link"]
       num_future_frames: 10
       dt_future_ref_frames: 0.1
       smpl_num_future_frames: 10
@@ -136,11 +137,11 @@ manager_env:
           ]
         adaptive_sampling:
           adp_samp_failure_rate_max_over_mean: 200
-        motion_file: /home/ruiming.wu/data/seed-retargeted/ao_motionlib/robot_motionlib_slow2x
-        smpl_motion_file: /home/ruiming.wu/data/seed-retargeted/ao_motionlib/smpl_motionlib_slow2x
+        motion_file: /home/ruiming.wu/data/seed-retargeted/ao_motionlib_no_ground/robot_motionlib
+        smpl_motion_file: /home/ruiming.wu/data/seed-retargeted/ao_motionlib_no_ground/smpl_motionlib
         smpl_y_up: true
         asset:
-          assetRoot: /home/ruiming.wu/codes/H4/mjcf
+          assetRoot: gear_sonic/data/assets/robot_description/mjcf/
           assetFileName: agile_one_no_hands.xml
           urdfFileName: ""
 

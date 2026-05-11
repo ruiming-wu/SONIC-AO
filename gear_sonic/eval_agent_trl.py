@@ -605,6 +605,47 @@ def main(override_config: omegaconf.OmegaConf):
 
         run_once = config.get("run_once", False)
         envs_completed = torch.zeros(config.num_envs, dtype=torch.bool, device=device)
+        ankle_stats_output = config.get("ankle_stats_output", None)
+        ankle_stats = []
+
+        def _collect_ankle_stats():
+            if ankle_stats_output is None:
+                return
+            inner_env = getattr(env, "env", env)
+            robot = inner_env.scene["robot"]
+            motion_cmd = inner_env.command_manager.get_term("motion")
+            joint_names = list(robot.joint_names)
+            target_joint_pos = motion_cmd.joint_pos
+            if getattr(motion_cmd, "has_dof_mismatch", False):
+                full_target = torch.full_like(robot.data.joint_pos, float("nan"))
+                full_target[:, motion_cmd.body_joint_indices] = target_joint_pos
+                target_joint_pos = full_target
+
+            row = {
+                "step": int(step_count),
+                "motion_time_step": int(
+                    (motion_cmd.motion_start_time_steps[0] + motion_cmd.time_steps[0]).item()
+                ),
+            }
+            last_env_actions = getattr(inner_env, "_last_env_actions", None)
+            for name in joint_names:
+                if "ankle" not in name:
+                    continue
+                idx = joint_names.index(name)
+                row[f"target_{name}_deg"] = float(torch.rad2deg(target_joint_pos[0, idx]).item())
+                row[f"actual_{name}_deg"] = float(torch.rad2deg(robot.data.joint_pos[0, idx]).item())
+                if last_env_actions is not None and idx < last_env_actions.shape[-1]:
+                    row[f"action_{name}"] = float(last_env_actions[0, idx].item())
+            ankle_stats.append(row)
+
+        def _write_ankle_stats():
+            if ankle_stats_output is None:
+                return
+            output_path = Path(ankle_stats_output)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(output_path, "w", encoding="utf-8") as f:
+                json.dump(ankle_stats, f, indent=2)
+            logger.info(f"Wrote ankle stats to {output_path}")
 
         with torch.no_grad():
             while True:
@@ -623,6 +664,7 @@ def main(override_config: omegaconf.OmegaConf):
                     logger.info(f"Reached max_render_steps={max_render_steps}. Exiting.")
                     if hasattr(env, "end_render_results"):
                         env.end_render_results()
+                    _write_ankle_stats()
                     break
 
                 results = env.step(actor_state)
@@ -632,6 +674,7 @@ def main(override_config: omegaconf.OmegaConf):
                     results[2],
                     results[3],
                 )  # noqa: F841
+                _collect_ankle_stats()
 
                 if eval_step_callbacks:
                     all_want_exit = all(
@@ -639,6 +682,7 @@ def main(override_config: omegaconf.OmegaConf):
                     )
                     if all_want_exit:
                         logger.info("All eval step callbacks signaled exit. Exiting evaluation loop.")
+                        _write_ankle_stats()
                         break
 
                 if run_once:
@@ -651,6 +695,7 @@ def main(override_config: omegaconf.OmegaConf):
                         logger.info("All environments completed one episode. Exiting (run_once=True).")
                         if hasattr(env, "end_render_results"):
                             env.end_render_results()
+                        _write_ankle_stats()
                         break
 
                 for obs_key in obs_dict.keys():  # noqa: SIM118

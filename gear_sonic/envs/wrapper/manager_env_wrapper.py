@@ -839,6 +839,9 @@ class ManagerEnvWrapper:
         if action_clip_value is not None and action_clip_value > 0:
             env_actions = torch.clip(env_actions, -action_clip_value, action_clip_value)
 
+        # Optional eval/debug consumers can inspect the final action sent to the env.
+        self.env._last_env_actions = env_actions.detach()  # noqa: SLF001
+
         # Lightweight action plot update (env 0, first N joints)
         if self.turn_on_visualization:
             try:

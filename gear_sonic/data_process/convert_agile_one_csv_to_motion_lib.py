@@ -29,7 +29,7 @@ Output PKL format matches SONIC motion_lib expectations:
     }
 
 The Agile One definition here is tied to:
-    /home/ruiming.wu/codes/H4/mjcf/agile_one_no_hands.xml
+    gear_sonic/data/assets/robot_description/mjcf/agile_one_no_hands.xml
 
 That XML has 30 MuJoCo bodies in SkeletonTree preorder:
     pelvis_link + one body per actuated joint.
